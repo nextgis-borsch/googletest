@@ -123,8 +123,13 @@ if(BUILD_SHARED_LIBS)
 else()
     set(LIB_NAME ${PROJECT_NAME}static)
 endif()
+
+set(EXPORT_TARGETS gtest gtest_main)
+if(gtest_disable_pthreads)
+    set(EXPORT_TARGETS ${EXPORT_TARGETS} ${CMAKE_THREAD_LIBS_INIT})
+endif()
   
-export(TARGETS gtest gtest_main FILE ${LIB_NAME}-exports.cmake 
+export(TARGETS ${EXPORT_TARGETS} FILE ${LIB_NAME}-exports.cmake 
         EXPORT_LINK_INTERFACE_LIBRARIES
     )  
 
