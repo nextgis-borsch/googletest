@@ -125,10 +125,7 @@ else()
 endif()
 
 set(EXPORT_TARGETS gtest gtest_main)
-if(gtest_disable_pthreads)
-    set(EXPORT_TARGETS ${EXPORT_TARGETS} ${CMAKE_THREAD_LIBS_INIT})
-endif()
-  
+ 
 export(TARGETS ${EXPORT_TARGETS} FILE ${LIB_NAME}-exports.cmake 
         EXPORT_LINK_INTERFACE_LIBRARIES
     )  
