@@ -125,7 +125,6 @@ else()
 endif()
 
 set(EXPORT_TARGETS gtest gtest_main)
- 
 export(TARGETS ${EXPORT_TARGETS} FILE ${LIB_NAME}-exports.cmake 
         EXPORT_LINK_INTERFACE_LIBRARIES
     )  
