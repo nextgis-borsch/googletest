@@ -118,11 +118,7 @@ install(TARGETS gtest gtest_main
 install(DIRECTORY ${gtest_SOURCE_DIR}/include/gtest
   DESTINATION ${INSTALL_INC_DIR})
   
-if(BUILD_SHARED_LIBS)
-    set(LIB_NAME ${PROJECT_NAME})
-else()
-    set(LIB_NAME ${PROJECT_NAME}static)
-endif()
+set(LIB_NAME ${PROJECT_NAME})
 
 set(EXPORT_TARGETS gtest gtest_main)
 export(TARGETS ${EXPORT_TARGETS} FILE ${LIB_NAME}-exports.cmake 
