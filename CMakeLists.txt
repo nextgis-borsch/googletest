@@ -113,17 +113,47 @@ endif()
 ########################################################################
 #
 # Install rules
-install(TARGETS gtest gtest_main
-  DESTINATION ${INSTALL_LIB_DIR})
+set(PACKAGE_NAME ${PROJECT_NAME})
+string(TOUPPER ${PACKAGE_NAME} PACKAGE_UPPER_NAME)
+set(EXPORT_TARGETS gtest gtest_main)
+
+install(TARGETS ${EXPORT_TARGETS}
+    EXPORT ${PACKAGE_UPPER_NAME}Targets
+    DESTINATION ${INSTALL_LIB_DIR}
+)
 install(DIRECTORY ${gtest_SOURCE_DIR}/include/gtest
-  DESTINATION ${INSTALL_INC_DIR})
-  
+    DESTINATION ${INSTALL_INC_DIR})
+
 set(LIB_NAME ${PROJECT_NAME})
 
-set(EXPORT_TARGETS gtest gtest_main)
-export(TARGETS ${EXPORT_TARGETS} FILE ${LIB_NAME}-exports.cmake 
-        EXPORT_LINK_INTERFACE_LIBRARIES
-    )  
+export(TARGETS ${EXPORT_TARGETS} FILE ${LIB_NAME}-exports.cmake
+    EXPORT_LINK_INTERFACE_LIBRARIES
+)
+
+# Add all targets to the build-tree export set
+export(TARGETS ${EXPORT_TARGETS}
+    FILE ${PROJECT_BINARY_DIR}/${PACKAGE_UPPER_NAME}Targets.cmake)
+
+if(REGISTER_PACKAGE)
+    # Export the package for use from the build-tree
+    # (this registers the build-tree with a global CMake-registry)
+    export(PACKAGE ${PACKAGE_UPPER_NAME})
+endif()
+
+# Create the <Package>Config.cmake file
+configure_file(cmake/PackageConfig.cmake.in
+    ${PROJECT_BINARY_DIR}/${PACKAGE_UPPER_NAME}Config.cmake @ONLY)
+
+if(NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL)
+    # Install the <Package>Config.cmake
+    install(FILES
+      ${PROJECT_BINARY_DIR}/${PACKAGE_UPPER_NAME}Config.cmake
+      DESTINATION ${INSTALL_CMAKECONF_DIR} COMPONENT dev)
+
+    # Install the export set for use with the install-tree
+    install(EXPORT ${PACKAGE_UPPER_NAME}Targets DESTINATION ${INSTALL_CMAKECONF_DIR} COMPONENT dev)
+endif()
+
 
 ########################################################################
 #
