@@ -107,8 +107,11 @@ target_link_libraries(gtest_main gtest)
 # to the targets for when we are part of a parent build (ie being pulled
 # in via add_subdirectory() rather than being a standalone build).
 if (DEFINED CMAKE_VERSION AND NOT "${CMAKE_VERSION}" VERSION_LESS "2.8.11")
-  target_include_directories(gtest      INTERFACE "${gtest_SOURCE_DIR}/include")
-  target_include_directories(gtest_main INTERFACE "${gtest_SOURCE_DIR}/include")
+    target_include_directories(gtest      INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include)
+    target_include_directories(gtest_main INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include)
+
+  # target_include_directories(gtest      INTERFACE "${gtest_SOURCE_DIR}/include")
+  # target_include_directories(gtest_main INTERFACE "${gtest_SOURCE_DIR}/include")
 endif()
 
 ########################################################################
@@ -120,16 +123,14 @@ set(EXPORT_TARGETS gtest gtest_main)
 
 install(TARGETS ${EXPORT_TARGETS}
     EXPORT ${PACKAGE_UPPER_NAME}Targets
-    DESTINATION ${INSTALL_LIB_DIR}
+    RUNTIME DESTINATION ${INSTALL_BIN_DIR}
+    LIBRARY DESTINATION ${INSTALL_LIB_DIR}
+    ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+    INCLUDES DESTINATION ${INSTALL_INC_DIR}
+    FRAMEWORK DESTINATION ${INSTALL_LIB_DIR}
 )
 install(DIRECTORY ${gtest_SOURCE_DIR}/include/gtest
     DESTINATION ${INSTALL_INC_DIR})
-
-set(LIB_NAME ${PROJECT_NAME})
-
-export(TARGETS ${EXPORT_TARGETS} FILE ${LIB_NAME}-exports.cmake
-    EXPORT_LINK_INTERFACE_LIBRARIES
-)
 
 # Add all targets to the build-tree export set
 export(TARGETS ${EXPORT_TARGETS}
