@@ -107,8 +107,8 @@ target_link_libraries(gtest_main gtest)
 # to the targets for when we are part of a parent build (ie being pulled
 # in via add_subdirectory() rather than being a standalone build).
 if (DEFINED CMAKE_VERSION AND NOT "${CMAKE_VERSION}" VERSION_LESS "2.8.11")
-    target_include_directories(gtest      INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include)
-    target_include_directories(gtest_main INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include)
+    target_include_directories(gtest      PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include)
+    target_include_directories(gtest_main PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include)
 
   # target_include_directories(gtest      INTERFACE "${gtest_SOURCE_DIR}/include")
   # target_include_directories(gtest_main INTERFACE "${gtest_SOURCE_DIR}/include")
