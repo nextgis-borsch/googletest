@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright 2009, Google Inc.
-# All rights reserved.
+# Copyright 2015 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -29,50 +28,36 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""upload_gtest.py v0.1.0 -- uploads a Google Test patch for review.
+"""Verifies that Google Test warns the user when not initialized properly."""
 
-This simple wrapper passes all command line flags and
---cc=googletestframework@googlegroups.com to upload.py.
+import gtest_test_utils
 
-USAGE: upload_gtest.py [options for upload.py]
-"""
-
-__author__ = 'wan@google.com (Zhanyong Wan)'
-
-import os
-import sys
-
-CC_FLAG = '--cc='
-GTEST_GROUP = 'googletestframework@googlegroups.com'
+binary_name = 'googletest-param-test-invalid-name1-test_'
+COMMAND = gtest_test_utils.GetTestExecutablePath(binary_name)
 
 
-def main():
-  # Finds the path to upload.py, assuming it is in the same directory
-  # as this file.
-  my_dir = os.path.dirname(os.path.abspath(__file__))
-  upload_py_path = os.path.join(my_dir, 'upload.py')
+def Assert(condition):
+  if not condition:
+    raise AssertionError
 
-  # Adds Google Test discussion group to the cc line if it's not there
-  # already.
-  upload_py_argv = [upload_py_path]
-  found_cc_flag = False
-  for arg in sys.argv[1:]:
-    if arg.startswith(CC_FLAG):
-      found_cc_flag = True
-      cc_line = arg[len(CC_FLAG):]
-      cc_list = [addr for addr in cc_line.split(',') if addr]
-      if GTEST_GROUP not in cc_list:
-        cc_list.append(GTEST_GROUP)
-      upload_py_argv.append(CC_FLAG + ','.join(cc_list))
-    else:
-      upload_py_argv.append(arg)
 
-  if not found_cc_flag:
-    upload_py_argv.append(CC_FLAG + GTEST_GROUP)
+def TestExitCodeAndOutput(command):
+  """Runs the given command and verifies its exit code and output."""
 
-  # Invokes upload.py with the modified command line flags.
-  os.execv(upload_py_path, upload_py_argv)
+  err = ('Parameterized test name \'"InvalidWithQuotes"\' is invalid')
+
+  p = gtest_test_utils.Subprocess(command)
+  Assert(p.terminated_by_signal)
+
+  # Verify the output message contains appropriate output
+  Assert(err in p.output)
+
+
+class GTestParamTestInvalidName1Test(gtest_test_utils.TestCase):
+
+  def testExitCodeAndOutput(self):
+    TestExitCodeAndOutput(COMMAND)
 
 
 if __name__ == '__main__':
-  main()
+  gtest_test_utils.Main()
