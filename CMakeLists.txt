@@ -7,7 +7,6 @@
 
 # BUILD_SHARED_LIBS is a standard CMake variable, but we declare it here to
 # make it prominent in the GUI.
-option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." OFF)
 
 # When other libraries are using a shared version of runtime libraries,
 # Google Test also has to use one.
@@ -44,8 +43,10 @@ endif()
 # as ${gtest_SOURCE_DIR} and to the root binary directory as
 # ${gtest_BINARY_DIR}.
 # Language "C" is required for find_package(Threads).
-project(gtest CXX C)
-cmake_minimum_required(VERSION 2.6.2)
+set(GOOGLETEST_VERSION 1.15.2)
+
+cmake_minimum_required(VERSION 3.10)
+project(gtest VERSION ${GOOGLETEST_VERSION} LANGUAGES CXX C)
 
 # some init settings
 set(CMAKE_COLOR_MAKEFILE ON)
@@ -63,6 +64,8 @@ if (COMMAND set_up_hermetic_build)
   set_up_hermetic_build()
 endif()
 
+option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." OFF)
+
 if (gtest_hide_internal_symbols)
   set(CMAKE_CXX_VISIBILITY_PRESET hidden)
   set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
@@ -73,23 +76,13 @@ include(cmake/internal_utils.cmake)
 
 config_compiler_and_linker()  # Defined in internal_utils.cmake.
 
+set(cmake_package_name GTest CACHE INTERNAL "")
+
 # Where Google Test's .h files can be found.
-include_directories(
-  ${gtest_SOURCE_DIR}/include
-  ${gtest_SOURCE_DIR})
-
-# Where Google Test's libraries can be found.
-link_directories(${gtest_BINARY_DIR}/src)
-
-# Summary of tuple support for Microsoft Visual Studio:
-# Compiler    version(MS)  version(cmake)  Support
-# ----------  -----------  --------------  -----------------------------
-# <= VS 2010  <= 10        <= 1600         Use Google Tests's own tuple.
-# VS 2012     11           1700            std::tr1::tuple + _VARIADIC_MAX=10
-# VS 2013     12           1800            std::tr1::tuple
-if (MSVC AND MSVC_VERSION EQUAL 1700)
-  add_definitions(/D _VARIADIC_MAX=10)
-endif()
+set(gtest_build_include_dirs
+  "${gtest_SOURCE_DIR}/include"
+  "${gtest_SOURCE_DIR}")
+include_directories(${gtest_build_include_dirs})
 
 ########################################################################
 #
@@ -100,23 +93,42 @@ endif()
 # are used for other targets, to ensure that gtest can be compiled by a user
 # aggressive about warnings.
 cxx_library(gtest "${cxx_strict}" src/gtest-all.cc)
-cxx_library(gtest_main "${cxx_strict}" src/gtest_main.cc)
-target_link_libraries(gtest_main gtest)
-
-# If the CMake version supports it, attach header directory information
-# to the targets for when we are part of a parent build (ie being pulled
-# in via add_subdirectory() rather than being a standalone build).
-if (DEFINED CMAKE_VERSION AND NOT "${CMAKE_VERSION}" VERSION_LESS "2.8.11")
-    target_include_directories(gtest      PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include)
-    target_include_directories(gtest_main PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include)
-
-  # target_include_directories(gtest      INTERFACE "${gtest_SOURCE_DIR}/include")
-  # target_include_directories(gtest_main INTERFACE "${gtest_SOURCE_DIR}/include")
+set_target_properties(gtest PROPERTIES VERSION ${GOOGLETEST_VERSION})
+if(GTEST_HAS_ABSL)
+  target_compile_definitions(gtest PUBLIC GTEST_HAS_ABSL=1)
+  target_link_libraries(gtest PUBLIC
+    absl::failure_signal_handler
+    absl::stacktrace
+    absl::symbolize
+    absl::flags_parse
+    absl::flags_reflection
+    absl::flags_usage
+    absl::strings
+    absl::any
+    absl::optional
+    absl::variant
+    re2::re2
+  )
 endif()
+cxx_library(gtest_main "${cxx_strict}" src/gtest_main.cc)
+
+set_target_properties(gtest_main PROPERTIES VERSION ${GOOGLETEST_VERSION})
+string(REPLACE ";" "$<SEMICOLON>" dirs "${gtest_build_include_dirs}")
+target_include_directories(gtest SYSTEM INTERFACE
+  "$<BUILD_INTERFACE:${dirs}>"
+  "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>")
+target_include_directories(gtest_main SYSTEM INTERFACE
+  "$<BUILD_INTERFACE:${dirs}>"
+  "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>")
+if(CMAKE_SYSTEM_NAME MATCHES "QNX" AND CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL 7.1)
+  target_link_libraries(gtest PUBLIC regex)
+endif()
+target_link_libraries(gtest_main PUBLIC gtest)
 
 ########################################################################
 #
 # Install rules
+install_project(gtest gtest_main)
 set(PACKAGE_NAME ${PROJECT_NAME})
 string(TOUPPER ${PACKAGE_NAME} PACKAGE_UPPER_NAME)
 set(EXPORT_TARGETS gtest gtest_main)
@@ -240,10 +252,10 @@ if (gtest_build_tests)
 
   cxx_test_with_flags(gtest-death-test_ex_nocatch_test
     "${cxx_exception} -DGTEST_ENABLE_CATCH_EXCEPTIONS_=0"
-    gtest test/gtest-death-test_ex_test.cc)
+    gtest test/googletest-death-test_ex_test.cc)
   cxx_test_with_flags(gtest-death-test_ex_catch_test
     "${cxx_exception} -DGTEST_ENABLE_CATCH_EXCEPTIONS_=1"
-    gtest test/gtest-death-test_ex_test.cc)
+    gtest test/googletest-death-test_ex_test.cc)
 
   cxx_test_with_flags(gtest_no_rtti_unittest "${cxx_no_rtti}"
     gtest_main_no_rtti test/gtest_unittest.cc)
@@ -257,80 +269,74 @@ if (gtest_build_tests)
                         PROPERTIES
                         COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 
-  if (NOT MSVC OR MSVC_VERSION LESS 1600)  # 1600 is Visual Studio 2010.
-    # Visual Studio 2010, 2012, and 2013 define symbols in std::tr1 that
-    # conflict with our own definitions. Therefore using our own tuple does not
-    # work on those compilers.
-    cxx_library(gtest_main_use_own_tuple "${cxx_use_own_tuple}"
-      src/gtest-all.cc src/gtest_main.cc)
-
-    cxx_test_with_flags(gtest-tuple_test "${cxx_use_own_tuple}"
-      gtest_main_use_own_tuple test/gtest-tuple_test.cc)
-
-    cxx_test_with_flags(gtest_use_own_tuple_test "${cxx_use_own_tuple}"
-      gtest_main_use_own_tuple
-      test/gtest-param-test_test.cc test/gtest-param-test2_test.cc)
-  endif()
-
   ############################################################
   # Python tests.
 
-  cxx_executable(gtest_break_on_failure_unittest_ test gtest)
-  py_test(gtest_break_on_failure_unittest)
+
+  cxx_executable(googletest-break-on-failure-unittest_ test gtest)
+  py_test(googletest-break-on-failure-unittest)
+
+  py_test(gtest_skip_check_output_test)
+  py_test(gtest_skip_environment_check_output_test)
 
   # Visual Studio .NET 2003 does not support STL with exceptions disabled.
-  if (NOT MSVC OR MSVC_VERSION GREATER 1310)  # 1310 is Visual Studio .NET 2003
+  if (NOT MSVC OR MSVC_VERSION GREATER 1310) # 1310 is Visual Studio .NET 2003
     cxx_executable_with_flags(
-      gtest_catch_exceptions_no_ex_test_
+      googletest-catch-exceptions-no-ex-test_
       "${cxx_no_exception}"
       gtest_main_no_exception
-      test/gtest_catch_exceptions_test_.cc)
+      test/googletest-catch-exceptions-test_.cc)
   endif()
 
   cxx_executable_with_flags(
-    gtest_catch_exceptions_ex_test_
+    googletest-catch-exceptions-ex-test_
     "${cxx_exception}"
     gtest_main
-    test/gtest_catch_exceptions_test_.cc)
-  py_test(gtest_catch_exceptions_test)
+    test/googletest-catch-exceptions-test_.cc)
+  py_test(googletest-catch-exceptions-test)
 
-  cxx_executable(gtest_color_test_ test gtest)
-  py_test(gtest_color_test)
+  cxx_executable(googletest-color-test_ test gtest)
+  py_test(googletest-color-test)
 
-  cxx_executable(gtest_env_var_test_ test gtest)
-  py_test(gtest_env_var_test)
+  cxx_executable(googletest-env-var-test_ test gtest)
+  py_test(googletest-env-var-test)
 
-  cxx_executable(gtest_filter_unittest_ test gtest)
-  py_test(gtest_filter_unittest)
+  cxx_executable(googletest-filter-unittest_ test gtest)
+  py_test(googletest-filter-unittest)
 
   cxx_executable(gtest_help_test_ test gtest_main)
   py_test(gtest_help_test)
 
-  cxx_executable(gtest_list_tests_unittest_ test gtest)
-  py_test(gtest_list_tests_unittest)
+  cxx_executable(googletest-list-tests-unittest_ test gtest)
+  py_test(googletest-list-tests-unittest)
 
-  cxx_executable(gtest_output_test_ test gtest)
-  py_test(gtest_output_test)
+  cxx_executable(googletest-output-test_ test gtest)
+  py_test(googletest-output-test --no_stacktrace_support)
 
-  cxx_executable(gtest_shuffle_test_ test gtest)
-  py_test(gtest_shuffle_test)
+  cxx_executable(googletest-shuffle-test_ test gtest)
+  py_test(googletest-shuffle-test)
 
   # MSVC 7.1 does not support STL with exceptions disabled.
   if (NOT MSVC OR MSVC_VERSION GREATER 1310)
-    cxx_executable(gtest_throw_on_failure_test_ test gtest_no_exception)
-    set_target_properties(gtest_throw_on_failure_test_
+    cxx_executable(googletest-throw-on-failure-test_ test gtest_no_exception)
+    set_target_properties(googletest-throw-on-failure-test_
       PROPERTIES
       COMPILE_FLAGS "${cxx_no_exception}")
-    py_test(gtest_throw_on_failure_test)
+    py_test(googletest-throw-on-failure-test)
   endif()
 
-  cxx_executable(gtest_uninitialized_test_ test gtest)
-  py_test(gtest_uninitialized_test)
+  cxx_executable(googletest-uninitialized-test_ test gtest)
+  py_test(googletest-uninitialized-test)
+
+  cxx_executable(gtest_list_output_unittest_ test gtest)
+  py_test(gtest_list_output_unittest)
 
   cxx_executable(gtest_xml_outfile1_test_ test gtest_main)
   cxx_executable(gtest_xml_outfile2_test_ test gtest_main)
   py_test(gtest_xml_outfiles_test)
+  py_test(googletest-json-outfiles-test)
 
   cxx_executable(gtest_xml_output_unittest_ test gtest)
-  py_test(gtest_xml_output_unittest)
+  py_test(gtest_xml_output_unittest --no_stacktrace_support)
+  py_test(googletest-json-output-unittest --no_stacktrace_support)
 endif()
