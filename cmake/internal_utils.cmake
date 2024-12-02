@@ -192,7 +192,7 @@ function(cxx_library_with_type name type cxx_flags)
       $<INSTALL_INTERFACE:GTEST_LINKED_AS_SHARED_LIBRARY=1>)
   endif()
   if (DEFINED GTEST_HAS_PTHREAD)
-    target_link_libraries(${name} PUBLIC Threads::Threads)
+    target_link_libraries(${name} PRIVATE Threads::Threads)
   endif()
 
   target_compile_features(${name} PUBLIC cxx_std_14)

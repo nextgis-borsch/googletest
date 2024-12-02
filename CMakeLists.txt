@@ -96,7 +96,7 @@ cxx_library(gtest "${cxx_strict}" src/gtest-all.cc)
 set_target_properties(gtest PROPERTIES VERSION ${GOOGLETEST_VERSION})
 if(GTEST_HAS_ABSL)
   target_compile_definitions(gtest PUBLIC GTEST_HAS_ABSL=1)
-  target_link_libraries(gtest PUBLIC
+  target_link_libraries(gtest PRIVATE
     absl::failure_signal_handler
     absl::stacktrace
     absl::symbolize
@@ -121,7 +121,7 @@ target_include_directories(gtest_main SYSTEM INTERFACE
   "$<BUILD_INTERFACE:${dirs}>"
   "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>")
 if(CMAKE_SYSTEM_NAME MATCHES "QNX" AND CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL 7.1)
-  target_link_libraries(gtest PUBLIC regex)
+  target_link_libraries(gtest PRIVATE regex)
 endif()
 target_link_libraries(gtest_main PUBLIC gtest)
 
@@ -132,6 +132,7 @@ install_project(gtest gtest_main)
 set(PACKAGE_NAME ${PROJECT_NAME})
 string(TOUPPER ${PACKAGE_NAME} PACKAGE_UPPER_NAME)
 set(EXPORT_TARGETS gtest gtest_main)
+set(VERSION ${GOOGLETEST_VERSION})
 
 install(TARGETS ${EXPORT_TARGETS}
     EXPORT ${PACKAGE_UPPER_NAME}Targets
